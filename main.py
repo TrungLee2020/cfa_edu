@@ -11,6 +11,7 @@ from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 import torch
+import gc
 
 # Load environment variables (e.g. AWS credentials)
 load_dotenv()
@@ -106,6 +107,26 @@ def ocr_with_marker(pdf_path):
         print(f"Error converting {pdf_path}: {e}")
 
 
+def check_and_clear_vram():
+    if not torch.cuda.is_available():
+        return
+
+    # Check memory usage
+    total_memory = torch.cuda.get_device_properties(0).total_memory
+    reserved_memory = torch.cuda.memory_reserved(0)
+    usage_ratio = reserved_memory / total_memory
+
+    # If usage > 66% (approx 2/3), clear cache
+    if usage_ratio > 0.66:
+        print(f"VRAM usage high ({usage_ratio:.2%}), clearing cache...")
+        gc.collect()
+        torch.cuda.empty_cache()
+        
+        # Check again
+        new_reserved = torch.cuda.memory_reserved(0)
+        print(f"VRAM after clear: {new_reserved / total_memory:.2%}")
+
+
 def main():
     pdfs = download_pdfs()
     
@@ -113,8 +134,11 @@ def main():
         print("No PDFs found to process.")
         return
 
-    for pdf in pdfs:
+    for i, pdf in enumerate(pdfs):
         ocr_with_marker(pdf)
+        
+        # Check VRAM after every file
+        check_and_clear_vram()
 
     print("DONE OCR ALL FILES")
 
