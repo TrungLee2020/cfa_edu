@@ -1,9 +1,16 @@
 import os
 import boto3
 from dotenv import load_dotenv
+
+# Set configuration for Marker BEFORE importing or initializing models
+# 16GB VRAM is plenty for higher batch sizes
+os.environ["INFERENCE_RAM"] = "16"
+os.environ["TORCH_DEVICE"] = "cuda"
+
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
+import torch
 
 # Load environment variables (e.g. AWS credentials)
 load_dotenv()
@@ -14,18 +21,27 @@ S3_PREFIX = ""           # Root of the bucket
 LOCAL_PDF_DIR = os.path.join(os.getcwd(), "data", "pdfs")
 OUTPUT_DIR = os.path.join(os.getcwd(), "data", "ocr_results")
 
+# Optimization config
+BATCH_MULTIPLIER = 4  # Increase for 16GB VRAM (Default is 2)
+
 # ==================
+
+if torch.cuda.is_available():
+    print(f"CUDA is available. Using GPU: {torch.cuda.get_device_name(0)}")
+else:
+    print("WARNING: CUDA not found. Marker will run on CPU (Slow).")
 
 os.makedirs(LOCAL_PDF_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Initialize S3 client. 
 s3 = boto3.client("s3")
 
 # Initialize Marker Converter
 print("Loading Marker models...")
+# Create config with potential overrides if needed
+artifact_dict = create_model_dict()
 converter = PdfConverter(
-    artifact_dict=create_model_dict(),
+    artifact_dict=artifact_dict,
 )
 
 def download_pdfs():
@@ -68,11 +84,11 @@ def ocr_with_marker(pdf_path):
 
     print(f"Processing {pdf_path}...")
     try:
-        # User requested API usage:
-        # rendered = converter("FILEPATH")
-        # text, _, images = text_from_rendered(rendered)
-        
-        rendered = converter(pdf_path)
+        # Render with optimization params
+        rendered = converter(
+            pdf_path, 
+            batch_multiplier=BATCH_MULTIPLIER
+        )
         full_text, _, images = text_from_rendered(rendered)
 
         # Save images
