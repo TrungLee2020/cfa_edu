@@ -74,8 +74,14 @@ def ocr_with_marker(pdf_path):
             batch_multiplier=2
         )
 
-        # Save markdown
-        md_path = os.path.join(out_dir, "output.md")
+        # Save images
+        for filename, image in images.items():
+            image_path = os.path.join(out_dir, filename)
+            with open(image_path, "wb") as f:
+                f.write(image)
+
+        # Save markdown with the same name as the PDF
+        md_path = os.path.join(out_dir, f"{pdf_name}.md")
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(full_text)
         
