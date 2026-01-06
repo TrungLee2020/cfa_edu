@@ -1,8 +1,12 @@
 import os
 import boto3
+from dotenv import load_dotenv
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
+
+# Load environment variables (e.g. AWS credentials)
+load_dotenv()
 
 # ===== CONFIG =====
 BUCKET_NAME = "bucket-cfa-beaverx"
