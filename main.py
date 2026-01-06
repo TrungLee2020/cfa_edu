@@ -1,7 +1,8 @@
 import os
 import boto3
-from marker.convert import convert_single_pdf
-from marker.models import load_all_models
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import text_from_rendered
 
 # ===== CONFIG =====
 BUCKET_NAME = "bucket-cfa-beaverx"
@@ -9,22 +10,19 @@ S3_PREFIX = ""           # Root of the bucket
 LOCAL_PDF_DIR = os.path.join(os.getcwd(), "data", "pdfs")
 OUTPUT_DIR = os.path.join(os.getcwd(), "data", "ocr_results")
 
-# Marker supports specific languages, usually passed as a list or string depending on version.
-# For convert_single_pdf, it often accepts langs as a list.
-LANGS = ["vi", "en"]
-
 # ==================
 
 os.makedirs(LOCAL_PDF_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Initialize S3 client. 
-# Ensure you have AWS credentials set up in your environment or ~/.aws/credentials
 s3 = boto3.client("s3")
 
-# Load models once to avoid reloading for every file
+# Initialize Marker Converter
 print("Loading Marker models...")
-model_lst = load_all_models()
+converter = PdfConverter(
+    artifact_dict=create_model_dict(),
+)
 
 def download_pdfs():
     print(f"Listing files in bucket '{BUCKET_NAME}' with prefix '{S3_PREFIX}'...")
@@ -66,13 +64,12 @@ def ocr_with_marker(pdf_path):
 
     print(f"Processing {pdf_path}...")
     try:
-        full_text, images, out_meta = convert_single_pdf(
-            fname=pdf_path,
-            model_lst=model_lst,
-            max_pages=None,
-            langs=LANGS,
-            batch_multiplier=2
-        )
+        # User requested API usage:
+        # rendered = converter("FILEPATH")
+        # text, _, images = text_from_rendered(rendered)
+        
+        rendered = converter(pdf_path)
+        full_text, _, images = text_from_rendered(rendered)
 
         # Save images
         for filename, image in images.items():
@@ -84,11 +81,6 @@ def ocr_with_marker(pdf_path):
         md_path = os.path.join(out_dir, f"{pdf_name}.md")
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(full_text)
-        
-        # Save metadata if needed
-        # import json
-        # with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
-        #     json.dump(out_meta, f, indent=4)
             
         print(f"Saved OCR result to {md_path}")
 
