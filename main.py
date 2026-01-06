@@ -22,7 +22,8 @@ LOCAL_PDF_DIR = os.path.join(os.getcwd(), "data", "pdfs")
 OUTPUT_DIR = os.path.join(os.getcwd(), "data", "ocr_results")
 
 # Optimization config
-BATCH_MULTIPLIER = 4  # Increase for 16GB VRAM (Default is 2)
+# BATCH_MULTIPLIER removed as it is not supported in converter call
+
 
 # ==================
 
@@ -84,11 +85,8 @@ def ocr_with_marker(pdf_path):
 
     print(f"Processing {pdf_path}...")
     try:
-        # Render with optimization params
-        rendered = converter(
-            pdf_path, 
-            batch_multiplier=BATCH_MULTIPLIER
-        )
+        # Render with optimization params (configured via env vars)
+        rendered = converter(pdf_path)
         full_text, _, images = text_from_rendered(rendered)
 
         # Save images
