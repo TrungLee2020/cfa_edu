@@ -1,0 +1,5 @@
+marker-pdf
+boto3 
+torch
+requests
+python-dotenv
